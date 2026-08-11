@@ -1,0 +1,22 @@
+{
+  "name": "Berry Coffee Photo Booth",
+  "short_name": "Berry Booth",
+  "description": "Berry Coffee Company Photo Kiosk",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#1a0505",
+  "theme_color": "#C43728",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

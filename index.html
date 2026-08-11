@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Berry Coffee Photo Booth</title>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#1a0505; }
+    body { font-family:'Outfit', Arial, sans-serif; user-select:none; }
+
+    /* ════════════════════════════════════════
+       SCREEN SYSTEM — display:none / flex
+       ════════════════════════════════════════ */
+    .screen {
+      display: none;
+      position: fixed;
+      top:0; left:0; right:0; bottom:0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .screen.active { display: flex; }
+
+    /* ════════════════════════════════════════
+       WELCOME
+       ════════════════════════════════════════ */
+    #scr-welcome {
+      background: radial-gradient(ellipse at 50% 30%, #5c1a14 0%, #250808 60%, #100202 100%);
+      gap: 0;
+    }
+    #welcome-logo {
+      width: clamp(120px, 35vw, 200px);
+      margin-bottom: 18px;
+      filter: drop-shadow(0 4px 24px rgba(196,55,40,.5));
+      animation: float 3.8s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-12px); }
+    }
+    .welcome-title {
+      font-family:'Outfit', Arial, sans-serif;
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      font-weight: 900;
+      color: #FFF8F0;
+      letter-spacing: .1em;
+      text-align: center;
+    }
+    .welcome-sub {
+      font-size: clamp(.75rem, 2.5vw, .95rem);
+      color: rgba(255,248,240,.45);
+      letter-spacing: .14em;
+      margin-top: 6px;
+      margin-bottom: 44px;
+      text-align: center;
+    }
+    #btn-start {
+      font-family:'Outfit', Arial, sans-serif;
+      font-size: clamp(1rem, 3vw, 1.2rem);
+      font-weight: 700;
+      color: #fff;
+      background: #C43728;
+      border: none;
+      border-radius: 60px;
+      padding: clamp(14px,3vw,20px) clamp(36px,8vw,60px);
+      cursor: pointer;
+      letter-spacing: .06em;
+      box-shadow: 0 6px 28px rgba(196,55,40,.45);
+      animation: pulse 2.2s ease-in-out infinite;
+      transition: transform .15s, background .15s;
+    }
+    #btn-start:active { transform: scale(.95); background: #8B2318; }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 6px 28px rgba(196,55,40,.45); }
+      50%      { box-shadow: 0 6px 42px rgba(196,55,40,.75); }
+    }
+
+    /* ════════════════════════════════════════
+       CAMERA
+       ════════════════════════════════════════ */
+    #scr-camera { background: #000; padding: 0; }
+
+    #video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    #video.front { transform: scaleX(-1); }
+
+    #frame-guide {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    #countdown-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: clamp(5rem, 22vw, 11rem);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 40px rgba(0,0,0,.9), 0 0 80px rgba(0,0,0,.6);
+      z-index: 10;
+    }
+    #countdown-overlay.show { display: flex; }
+
+    .cam-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 24px 28px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(transparent, rgba(0,0,0,.8));
+      z-index: 5;
+    }
+    .cam-icon-btn {
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.5);
+      background: rgba(0,0,0,.4);
+      color: #fff;
+      font-size: 1.4rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: background .2s, transform .15s;
+    }
+    .cam-icon-btn:active { background: rgba(255,255,255,.2); transform: scale(.9); }
+    #btn-capture {
+      width: clamp(72px, 15vw, 90px);
+      height: clamp(72px, 15vw, 90px);
+      border-radius: 50%;
+      border: 4px solid #fff;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: transform .15s;
+      box-shadow: 0 0 0 4px rgba(255,255,255,.25);
+    }
+    #btn-capture::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    #btn-capture:active { transform: scale(.88); }
+
+    /* ════════════════════════════════════════
+       PREVIEW
+       ════════════════════════════════════════ */
+    #scr-preview {
+      background: #0d0202;
+      justify-content: flex-start;
+      padding: 0;
+    }
+
+    .preview-photo-area {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 0;
+      padding: 10px;
+    }
+    #preview-canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.7);
+    }
+
+    /* Sticker picker */
+    .sticker-section {
+      width: 100%;
+      background: rgba(14,3,3,.97);
+      border-top: 1px solid rgba(196,55,40,.2);
+      flex-shrink: 0;
+      padding: 10px 0 12px;
+    }
+    .sticker-section-label {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      color: rgba(255,248,240,.3);
+      text-align: center;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .sticker-row {
+      display: flex;
+      gap: 10px;
+      padding: 0 14px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .sticker-row::-webkit-scrollbar { display: none; }
+
+    .sticker-chip {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      min-width: 90px;
+      transition: border-color .2s, background .2s, transform .12s;
+    }
+    .sticker-chip:active { transform: scale(.93); }
+    .sticker-chip.selected {
+      background: rgba(196,55,40,.14);
+    }
+    .sticker-chip-preview {
+      font-family: 'Dancing Script', cursive;
+      font-size: 1.3rem;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .sticker-chip-name {
+      font-size: .58rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: rgba(255,255,255,.35);
+      text-transform: uppercase;
+    }
+
+    /* Action buttons row */
+    .action-row {
+      width: 100%;
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px 18px;
+      background: rgba(14,3,3,.97);
+      flex-shrink: 0;
+    }
+    .btn-ghost {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      border: 1.5px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.75);
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .12s;
+    }
+    .btn-ghost:active { background: rgba(255,255,255,.12); transform: scale(.97); }
+    .btn-red {
+      flex: 2;
+      padding: 14px;
+      border-radius: 14px;
+      background: #C43728;
+      border: none;
+      color: #fff;
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(196,55,40,.4);
+      transition: background .2s, transform .12s;
+    }
+    .btn-red:active { background: #8B2318; transform: scale(.97); }
+
+    /* ════════════════════════════════════════
+       DONE
+       ════════════════════════════════════════ */
+    #scr-done {
+      background: radial-gradient(ellipse at 50% 40%, #2e0a08 0%, #0d0202 100%);
+      gap: 22px;
+    }
+    .done-rabbit { font-size: 4.5rem; animation: popIn .5s cubic-bezier(.17,.67,.35,1.4) both; }
+    @keyframes popIn {
+      0%   { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .done-h2 {
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: clamp(1.4rem, 5vw, 1.9rem);
+      font-weight: 900;
+      color: #FFF8F0;
+      text-align: center;
+    }
+    .done-p {
+      color: rgba(255,248,240,.4);
+      font-size: .9rem;
+      text-align: center;
+    }
+    .progress-bar {
+      width: clamp(200px, 60vw, 280px);
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.1);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      width: 0%;
+      background: linear-gradient(90deg, #C43728, #E85540);
+      transition: width .1s linear;
+    }
+    #btn-download {
+      display: inline-block;
+      padding: 14px 40px;
+      border-radius: 14px;
+      background: #C43728;
+      color: #fff;
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(196,55,40,.4);
+      opacity: 0;
+      transition: opacity .4s .5s;
+    }
+    #btn-download.ready { opacity: 1; }
+    .done-counter-txt {
+      color: rgba(255,248,240,.35);
+      font-size: .85rem;
+      margin-top: 4px;
+    }
+    .done-counter-txt span {
+      color: rgba(255,248,240,.7);
+      font-weight: 700;
+    }
+    .done-new-btn {
+      margin-top: 6px;
+      padding: 13px 32px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
+      color: rgba(255,248,240,.8);
+      font-family: 'Outfit', Arial, sans-serif;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .12s;
+    }
+    .done-new-btn:active { background: rgba(255,255,255,.15); transform: scale(.96); }
+
+    /* Error toast */
+    #err-toast {
+      display: none;
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: #8B2318;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: .9rem;
+      font-weight: 600;
+      max-width: 90vw;
+      text-align: center;
+      z-index: 999;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    }
+    #err-toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ 1 · WELCOME ══════════ -->
+<section id="scr-welcome" class="screen active">
+  <img id="welcome-logo" src="logo.png" alt="Berry Coffee">
+  <h1 class="welcome-title">PHOTO BOOTH</h1>
+  <p class="welcome-sub">Capture your perfect moment</p>
+  <button id="btn-start">✦ &nbsp;Tap to Start&nbsp; ✦</button>
+</section>
+
+<!-- ══════════ 2 · CAMERA ══════════ -->
+<section id="scr-camera" class="screen">
+  <video id="video" autoplay playsinline muted class="front"></video>
+  <canvas id="frame-guide"></canvas>
+  <div id="countdown-overlay"></div>
+  <div class="cam-bar">
+    <button class="cam-icon-btn" id="btn-cancel">✕</button>
+    <button id="btn-capture" title="Take Photo"></button>
+    <button class="cam-icon-btn" id="btn-flip">⇄</button>
+  </div>
+</section>
+
+<!-- ══════════ 3 · PREVIEW ══════════ -->
+<section id="scr-preview" class="screen">
+  <div class="preview-photo-area">
+    <canvas id="preview-canvas"></canvas>
+  </div>
+
+  <div class="sticker-section">
+    <div class="sticker-section-label">Choose your sticker</div>
+    <div class="sticker-row" id="sticker-row"></div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn-ghost" id="btn-retake">↩ Retake</button>
+    <button class="btn-red"   id="btn-print">🖨&nbsp; Print &amp; Save</button>
+  </div>
+</section>
+
+<!-- ══════════ 4 · DONE ══════════ -->
+<section id="scr-done" class="screen">
+  <div class="done-rabbit">🐰</div>
+  <h2 class="done-h2">Photo printed!</h2>
+  <p class="done-p">Your memory is on its way&hellip;</p>
+  <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+  <a id="btn-download" href="#">⬇&nbsp; Save Photo</a>
+  <p class="done-counter-txt">New photo in <span id="done-counter">3</span>s</p>
+  <button class="done-new-btn" onclick="resetAndGoWelcome()">📸 &nbsp;New Photo Now</button>
+</section>
+
+<div id="err-toast"></div>
+
+<script>
+/* ──────────────────────────────────────────────────────
+   FRAME DIMENSIONS (match make_frame.py output exactly)
+────────────────────────────────────────────────────── */
+const F = {
+  W:1181, H:1771,
+  PX1:94, PY1:472, PX2:1087, PY2:1417,
+  SCX:590, SCY:1647, SFONT:148
+};
+
+/* ──────────────────────────────────────────────────────
+   STICKERS
+────────────────────────────────────────────────────── */
+const STICKERS = [
+  { name:'Love',       text:'♥  Love  ♥',      color:'#C43728' },
+  { name:'Cheers',     text:'Cheers!',           color:'#7B4A1F' },
+  { name:'Friends',    text:'Friends  ♡',        color:'#C44480' },
+  { name:'Good Vibes', text:'Good Vibes  ✦',     color:'#B8860B' },
+  { name:'Together',   text:'Together  ♥',       color:'#C43728' },
+  { name:'Happy Days', text:'Happy  Days',        color:'#D4682A' },
+  { name:'Memories',   text:'✦  Memories  ✦',   color:'#2E7D87' },
+  { name:'Berry',      text:'Berry  Love  ♥',   color:'#8B2318' },
+];
+
+/* ──────────────────────────────────────────────────────
+   STATE
+────────────────────────────────────────────────────── */
+let stream       = null;
+let facing       = 'user';      // 'user' = front, 'environment' = rear
+let rawCanvas    = null;        // offscreen canvas with raw capture
+let stickerIdx   = 0;
+let overlay      = null;        // frame_overlay.png
+let isCounting   = false;
+
+/* ──────────────────────────────────────────────────────
+   DOM
+────────────────────────────────────────────────────── */
+const scrs = {
+  welcome: document.getElementById('scr-welcome'),
+  camera:  document.getElementById('scr-camera'),
+  preview: document.getElementById('scr-preview'),
+  done:    document.getElementById('scr-done'),
+};
+const video        = document.getElementById('video');
+const guide        = document.getElementById('frame-guide');
+const cdOverlay    = document.getElementById('countdown-overlay');
+const previewCV    = document.getElementById('preview-canvas');
+const pCtx         = previewCV.getContext('2d');
+const stickerRow   = document.getElementById('sticker-row');
+const progFill     = document.getElementById('prog-fill');
+const btnDownload  = document.getElementById('btn-download');
+const errToast     = document.getElementById('err-toast');
+
+/* ──────────────────────────────────────────────────────
+   SCREEN MANAGEMENT
+────────────────────────────────────────────────────── */
+function show(name) {
+  Object.entries(scrs).forEach(([k, el]) => {
+    el.classList.toggle('active', k === name);
+  });
+}
+
+/* ──────────────────────────────────────────────────────
+   ERROR TOAST
+────────────────────────────────────────────────────── */
+function toast(msg, ms = 4000) {
+  errToast.textContent = msg;
+  errToast.classList.add('show');
+  setTimeout(() => errToast.classList.remove('show'), ms);
+}
+
+/* ──────────────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────────────── */
+async function init() {
+  // Load overlay image (non-blocking — we proceed even on fail)
+  overlay = new Image();
+  overlay.onerror = () => console.warn('frame_overlay.png could not load');
+  overlay.src = 'frame_overlay.png';
+
+  // Build sticker picker
+  STICKERS.forEach((s, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'sticker-chip' + (i === 0 ? ' selected' : '');
+    chip.style.setProperty('border-color', i === 0 ? s.color : '');
+    chip.innerHTML =
+      `<span class="sticker-chip-preview" style="color:${s.color};font-family:'Dancing Script',cursive">${s.text}</span>` +
+      `<span class="sticker-chip-name">${s.name}</span>`;
+    chip.addEventListener('click', () => pickSticker(i));
+    stickerRow.appendChild(chip);
+  });
+
+  // Buttons
+  document.getElementById('btn-start').addEventListener('click', openCamera);
+  document.getElementById('btn-cancel').addEventListener('click', closeCamera);
+  document.getElementById('btn-flip').addEventListener('click', flipCam);
+  document.getElementById('btn-capture').addEventListener('click', startCountdown);
+  document.getElementById('btn-retake').addEventListener('click', openCamera);
+  document.getElementById('btn-print').addEventListener('click', doPrint);
+}
+
+/* ──────────────────────────────────────────────────────
+   STICKER PICKER
+────────────────────────────────────────────────────── */
+function pickSticker(idx) {
+  stickerIdx = idx;
+  document.querySelectorAll('.sticker-chip').forEach((c, i) => {
+    const active = i === idx;
+    c.classList.toggle('selected', active);
+    c.style.borderColor = active ? STICKERS[i].color : '';
+  });
+  composite();
+}
+
+/* ──────────────────────────────────────────────────────
+   FRAME GUIDE (camera overlay)
+────────────────────────────────────────────────────── */
+function drawGuide() {
+  guide.width  = guide.offsetWidth  || window.innerWidth;
+  guide.height = guide.offsetHeight || window.innerHeight;
+  const gW = guide.width, gH = guide.height;
+  const gCtx = guide.getContext('2d');
+
+  const scale = Math.min(gW / F.W, gH / F.H);
+  const ox = (gW - F.W * scale) / 2;
+  const oy = (gH - F.H * scale) / 2;
+  const tx = x => ox + x * scale;
+  const ty = y => oy + y * scale;
+  const pw = (F.PX2 - F.PX1) * scale;
+  const ph = (F.PY2 - F.PY1) * scale;
+
+  gCtx.clearRect(0, 0, gW, gH);
+
+  // dim outside photo area
+  gCtx.fillStyle = 'rgba(0,0,0,.5)';
+  gCtx.fillRect(0, 0, gW, gH);
+  gCtx.clearRect(tx(F.PX1), ty(F.PY1), pw, ph);
+
+  // border
+  gCtx.strokeStyle = 'rgba(255,255,255,.8)';
+  gCtx.lineWidth = 2.5;
+  gCtx.strokeRect(tx(F.PX1), ty(F.PY1), pw, ph);
+
+  // corner marks
+  const c = 20;
+  [
+    [tx(F.PX1), ty(F.PY1), c, 0, c, 0],
+    [tx(F.PX2), ty(F.PY1), -c, 0, -c, 0],
+    [tx(F.PX1), ty(F.PY2), c, 0, c, 0],
+    [tx(F.PX2), ty(F.PY2), -c, 0, -c, 0],
+  ];
+
+  // logo hint
+  gCtx.fillStyle = 'rgba(255,255,255,.15)';
+  gCtx.font = `${Math.max(11, 13 * scale)}px Outfit, Arial, sans-serif`;
+  gCtx.textAlign = 'center';
+  gCtx.textBaseline = 'middle';
+  gCtx.fillText('BERRY COFFEE', tx(F.W / 2), ty(F.H * 0.15));
+}
+
+/* ──────────────────────────────────────────────────────
+   CAMERA
+────────────────────────────────────────────────────── */
+async function openCamera() {
+  // Tam ekran iste
+  try {
+    const el = document.documentElement;
+    if (el.requestFullscreen)           await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch(_) {}
+
+  show('camera');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width:{ideal:1920}, height:{ideal:1920} },
+      audio: false,
+    });
+    video.srcObject = stream;
+    video.classList.toggle('front', facing === 'user');
+    await video.play();
+    drawGuide();
+  } catch(e) {
+    toast('Camera error: ' + e.message);
+    console.error(e);
+    show('welcome');
+  }
+}
+
+function stopCam() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  isCounting = false;
+  cdOverlay.classList.remove('show');
+}
+
+function closeCamera() { stopCam(); show('welcome'); }
+
+async function flipCam() {
+  stopCam();
+  facing = facing === 'user' ? 'environment' : 'user';
+  await openCamera();
+}
+
+/* ──────────────────────────────────────────────────────
+   COUNTDOWN + CAPTURE
+────────────────────────────────────────────────────── */
+function startCountdown() {
+  if (isCounting) return;
+  isCounting = true;
+  let n = 3;
+
+  const tick = () => {
+    if (!isCounting) return;
+    cdOverlay.textContent = n;
+    cdOverlay.classList.add('show');
+    // re-trigger CSS animation
+    cdOverlay.style.animation = 'none';
+    void cdOverlay.offsetWidth;
+    cdOverlay.style.animation = '';
+
+    if (n === 0) {
+      cdOverlay.classList.remove('show');
+      captureFrame();
+      return;
+    }
+    n--;
+    setTimeout(tick, 900);
+  };
+  tick();
+}
+
+function captureFrame() {
+  isCounting = false;
+  const vW = video.videoWidth  || 1080;
+  const vH = video.videoHeight || 1920;
+
+  const oc = document.createElement('canvas');
+  oc.width  = vW;
+  oc.height = vH;
+  const octx = oc.getContext('2d');
+
+  if (facing === 'user') {           // un-mirror the capture
+    octx.translate(vW, 0);
+    octx.scale(-1, 1);
+  }
+  octx.drawImage(video, 0, 0, vW, vH);
+  rawCanvas = oc;
+
+  stopCam();
+  composite();
+  show('preview');
+}
+
+/* ──────────────────────────────────────────────────────
+   COMPOSITING
+────────────────────────────────────────────────────── */
+function composite() {
+  previewCV.width  = F.W;
+  previewCV.height = F.H;
+
+  // white background
+  pCtx.fillStyle = '#FFFFFF';
+  pCtx.fillRect(0, 0, F.W, F.H);
+
+  // photo (cover-fit)
+  if (rawCanvas) {
+    const pw = F.PX2 - F.PX1;
+    const ph = F.PY2 - F.PY1;
+    const sw = rawCanvas.width;
+    const sh = rawCanvas.height;
+    const sAR = sw / sh;
+    const dAR = pw / ph;
+    let sx, sy, ssw, ssh;
+    if (sAR > dAR) {
+      ssh = sh; ssw = sh * dAR; sx = (sw - ssw) / 2; sy = 0;
+    } else {
+      ssw = sw; ssh = sw / dAR; sx = 0; sy = (sh - ssh) / 2;
+    }
+    pCtx.drawImage(rawCanvas, sx, sy, ssw, ssh, F.PX1, F.PY1, pw, ph);
+  }
+
+  // frame overlay (async-safe)
+  const drawSticker = () => {
+    const s = STICKERS[stickerIdx];
+    pCtx.save();
+    pCtx.font             = `${F.SFONT}px "Dancing Script", cursive`;
+    pCtx.fillStyle        = s.color;
+    pCtx.textAlign        = 'center';
+    pCtx.textBaseline     = 'middle';
+    pCtx.shadowColor      = 'rgba(0,0,0,.12)';
+    pCtx.shadowBlur       = 6;
+    pCtx.shadowOffsetY    = 3;
+    pCtx.fillText(s.text, F.SCX, F.SCY);
+    pCtx.restore();
+  };
+
+  if (overlay && overlay.complete && overlay.naturalWidth > 0) {
+    pCtx.drawImage(overlay, 0, 0, F.W, F.H);
+    document.fonts.ready.then(drawSticker);
+  } else if (overlay) {
+    overlay.onload = () => {
+      pCtx.drawImage(overlay, 0, 0, F.W, F.H);
+      document.fonts.ready.then(drawSticker);
+    };
+  } else {
+    document.fonts.ready.then(drawSticker);
+  }
+}
+
+/* ──────────────────────────────────────────────────────
+   PRINT / SAVE
+────────────────────────────────────────────────────── */
+function doPrint() {
+  show('done');
+  const dataURL = previewCV.toDataURL('image/jpeg', 0.95);
+
+  // Download button
+  btnDownload.href     = dataURL;
+  btnDownload.download = 'berry-photo-' + Date.now() + '.jpg';
+  setTimeout(() => btnDownload.classList.add('ready'), 400);
+
+  // Progress bar — ~2.5 saniyede dolar
+  progFill.style.width = '0%';
+  let pct = 0;
+  const prog = setInterval(() => {
+    pct += 2.5;
+    progFill.style.width = Math.min(pct, 100) + '%';
+    if (pct >= 100) {
+      clearInterval(prog);
+      // 3 saniye geri sayım, sonra welcome'a dön
+      let secs = 3;
+      const counter = document.getElementById('done-counter');
+      if (counter) counter.textContent = secs;
+      const cd = setInterval(() => {
+        secs--;
+        if (counter) counter.textContent = secs;
+        if (secs <= 0) {
+          clearInterval(cd);
+          resetAndGoWelcome();
+        }
+      }, 1000);
+    }
+  }, 60);
+
+  // Baskı dialog'u — yazdıktan sonra sekme otomatik kapanır
+  try {
+    const pw = window.open('', '_blank');
+    if (pw) {
+      pw.document.write(
+        '<!DOCTYPE html><html><head><style>' +
+        '*{margin:0;padding:0;box-sizing:border-box}' +
+        'html,body{width:100%;height:100%;background:#fff}' +
+        'img{display:block;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill}' +
+        '@media print{@page{margin:0;size:auto}}' +
+        '</style></head><body>' +
+        '<img src="' + dataURL + '" onload="' +
+        'window.addEventListener(\'afterprint\',function(){window.close();});' +
+        'window.focus();window.print();">' +
+        '</body></html>'
+      );
+      pw.document.close();
+    }
+  } catch(_) { /* popup engellendi – download çalışır */ }
+}
+
+function resetAndGoWelcome() {
+  progFill.style.width = '0%';
+  btnDownload.classList.remove('ready');
+  rawCanvas = null;
+  show('welcome');
+}
+
+/* ──────────────────────────────────────────────────────
+   WINDOW RESIZE
+────────────────────────────────────────────────────── */
+window.addEventListener('resize', () => {
+  if (scrs.camera.classList.contains('active') && stream) drawGuide();
+});
+
+/* ──────────────────────────────────────────────────────
+   START
+────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
