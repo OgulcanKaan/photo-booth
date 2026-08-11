@@ -781,11 +781,20 @@ function doPrint() {
     }
   }, 60);
 
-  // Baskı — popup yok, direkt window.print()
+  // Baskı — popup yok, görüntü render tree içinde tutulur
+  let dataURL;
+  try { dataURL = previewCV.toDataURL('image/jpeg', 0.95); }
+  catch(e) { toast('Fotoğraf hazırlanamadı: ' + e.message); return; }
+
   const printImg = document.createElement('img');
   printImg.id  = 'berry-print-img';
   printImg.src = dataURL;
-  printImg.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;object-fit:fill;z-index:99999;background:#fff';
+  // Ekran dışı ama display:none DEĞİL → render tree içinde
+  printImg.style.cssText = [
+    'position:fixed', 'top:-9999px', 'left:-9999px',
+    'width:100vw', 'height:100vh', 'opacity:0',
+    'pointer-events:none', 'object-fit:fill'
+  ].join(';');
   document.body.appendChild(printImg);
 
   const printCSS = document.createElement('style');
@@ -793,7 +802,10 @@ function doPrint() {
   printCSS.textContent =
     '@media print{' +
     'body>*:not(#berry-print-img){display:none!important}' +
-    '#berry-print-img{display:block!important;position:fixed;top:0;left:0;width:100%;height:100%;object-fit:fill}' +
+    '#berry-print-img{' +
+    'display:block!important;opacity:1!important;' +
+    'position:fixed!important;top:0!important;left:0!important;' +
+    'width:100%!important;height:100%!important;object-fit:fill!important}' +
     '@page{margin:0;size:auto}}';
   document.head.appendChild(printCSS);
 
@@ -802,7 +814,7 @@ function doPrint() {
     try { document.head.removeChild(printCSS); } catch(_) {}
   };
   window.addEventListener('afterprint', cleanup, { once: true });
-  setTimeout(cleanup, 8000); // fallback temizlik
+  setTimeout(cleanup, 10000);
 
   window.print();
 }
