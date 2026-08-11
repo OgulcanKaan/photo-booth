@@ -781,25 +781,30 @@ function doPrint() {
     }
   }, 60);
 
-  // Baskı dialog'u — yazdıktan sonra sekme otomatik kapanır
-  try {
-    const pw = window.open('', '_blank');
-    if (pw) {
-      pw.document.write(
-        '<!DOCTYPE html><html><head><style>' +
-        '*{margin:0;padding:0;box-sizing:border-box}' +
-        'html,body{width:100%;height:100%;background:#fff}' +
-        'img{display:block;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill}' +
-        '@media print{@page{margin:0;size:auto}}' +
-        '</style></head><body>' +
-        '<img src="' + dataURL + '" onload="' +
-        'window.addEventListener(\'afterprint\',function(){window.close();});' +
-        'window.focus();window.print();">' +
-        '</body></html>'
-      );
-      pw.document.close();
-    }
-  } catch(_) { /* popup engellendi – download çalışır */ }
+  // Baskı — popup yok, direkt window.print()
+  const printImg = document.createElement('img');
+  printImg.id  = 'berry-print-img';
+  printImg.src = dataURL;
+  printImg.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;object-fit:fill;z-index:99999;background:#fff';
+  document.body.appendChild(printImg);
+
+  const printCSS = document.createElement('style');
+  printCSS.id = 'berry-print-css';
+  printCSS.textContent =
+    '@media print{' +
+    'body>*:not(#berry-print-img){display:none!important}' +
+    '#berry-print-img{display:block!important;position:fixed;top:0;left:0;width:100%;height:100%;object-fit:fill}' +
+    '@page{margin:0;size:auto}}';
+  document.head.appendChild(printCSS);
+
+  const cleanup = () => {
+    try { document.body.removeChild(printImg); } catch(_) {}
+    try { document.head.removeChild(printCSS); } catch(_) {}
+  };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(cleanup, 8000); // fallback temizlik
+
+  window.print();
 }
 
 function resetAndGoWelcome() {
